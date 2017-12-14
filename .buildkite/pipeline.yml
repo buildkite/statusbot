@@ -6,9 +6,9 @@ steps:
   - name: ":docker: Build"
     plugins:
       - artifacts#master:
-        download: "dist/*"
+          download: "dist/*"
       - docker-compose#v1.7.0:
-        build: statusbot
+          build: statusbot
 
   - wait
   - name: ":docker: Push"
