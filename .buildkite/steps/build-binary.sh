@@ -27,5 +27,3 @@ file "${DISTFILE}"
 
 chmod +x "${DISTFILE}"
 echo "👍 ${DISTFILE}"
-
-buildkite-agent artifact upload "${DISTFILE}"

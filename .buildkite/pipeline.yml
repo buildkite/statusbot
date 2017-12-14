@@ -1,11 +1,16 @@
 steps:
   - name: ":linux: amd64"
     command: .buildkite/steps/build-binary.sh linux amd64
+    plugins:
+      - artifacts#fe7080c:
+          debug: true
+          upload: "dist/*"
 
   - wait
   - name: ":docker: Build"
     plugins:
-      - artifacts#master:
+      - artifacts#fe7080c:
+          debug: true
           download: "dist/*"
       - docker-compose#v1.7.0:
           build: statusbot
@@ -15,4 +20,4 @@ steps:
     plugins:
       docker-compose#v1.7.0:
         push:
-        - statusbot:032379705303.dkr.ecr.us-east-1.amazonaws.com/statusbot
+          - statusbot:032379705303.dkr.ecr.us-east-1.amazonaws.com/statusbot
