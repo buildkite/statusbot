@@ -1,3 +1,17 @@
 steps:
   - name: ":linux: amd64"
     command: .buildkite/steps/build-binary.sh linux amd64
+
+  - wait
+  - name: ":docker: Build"
+    artifact_paths: "dist/*"
+    plugins:
+      docker-compose#v1.7.0:
+        build: statusbot
+
+  - wait
+  - name: ":docker: Push"
+    plugins:
+      docker-compose#v1.7.0:
+        push: app
+        - statusbot:032379705303.dkr.ecr.us-east-1.amazonaws.com/statusbot
