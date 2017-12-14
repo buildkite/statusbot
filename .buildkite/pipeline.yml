@@ -4,9 +4,10 @@ steps:
 
   - wait
   - name: ":docker: Build"
-    artifact_paths: "dist/*"
     plugins:
-      docker-compose#v1.7.0:
+      - artifacts#master:
+        download: "dist/*"
+      - docker-compose#v1.7.0:
         build: statusbot
 
   - wait
