@@ -13,5 +13,5 @@ steps:
   - name: ":docker: Push"
     plugins:
       docker-compose#v1.7.0:
-        push: app
+        push:
         - statusbot:032379705303.dkr.ecr.us-east-1.amazonaws.com/statusbot
