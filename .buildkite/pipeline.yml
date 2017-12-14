@@ -1,0 +1,3 @@
+steps:
+  - name: ":linux: amd64"
+    command: .buildkite/steps/build-binary.sh linux amd64
