@@ -1,0 +1,31 @@
+{
+	"comment": "",
+	"ignore": "test",
+	"package": [
+		{
+			"checksumSHA1": "5rPfda8jFccr3A6heL+JAmi9K9g=",
+			"path": "github.com/davecgh/go-spew/spew",
+			"revision": "5215b55f46b2b919f50a1df0eaa5886afe4e3b3d",
+			"revisionTime": "2015-11-05T21:09:06Z"
+		},
+		{
+			"checksumSHA1": "HYgTWn4FgVbvSBYVO4DxUPWfCz0=",
+			"path": "github.com/nlopes/slack",
+			"revision": "5cde21b8b96a43fc3435a1f514123d14fd7eabdc",
+			"revisionTime": "2017-07-25T12:17:30Z"
+		},
+		{
+			"checksumSHA1": "7ZcxTgerdDQ2GttgXEULUdyJCv0=",
+			"path": "github.com/yfronto/go-statuspage-api",
+			"revision": "f5008340307ea500175260ad14cbe791961ffd78",
+			"revisionTime": "2017-04-06T16:14:51Z"
+		},
+		{
+			"checksumSHA1": "7EZyXN0EmZLgGxZxK01IJua4c8o=",
+			"path": "golang.org/x/net/websocket",
+			"revision": "c73622c77280266305273cb545f54516ced95b93",
+			"revisionTime": "2017-06-11T01:16:46Z"
+		}
+	],
+	"rootPath": "github.com/buildkite/statusbot"
+}
