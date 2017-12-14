@@ -173,8 +173,9 @@ func pollStatusPage(d time.Duration) (chan incidentUpdate, error) {
 				}
 
 				for _, update := range updates {
-					if update.Timestamp.After
-					ch <- update
+					if update.Timestamp.After(startTime) {
+						ch <- update
+					}
 				}
 
 				if len(updates) > 0 {
