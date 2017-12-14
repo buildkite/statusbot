@@ -3,17 +3,16 @@ steps:
     command: .buildkite/steps/build-binary.sh linux amd64
     plugins:
       - artifacts#5ad26ec:
-          debug: true
           upload: "dist/*"
 
   - wait
   - name: ":docker: Build"
     plugins:
       - artifacts#5ad26ec:
-          debug: true
           download: "dist/*"
       - docker-compose#v1.7.0:
           build: statusbot
+          image-repository: 032379705303.dkr.ecr.us-east-1.amazonaws.com/statusbot
 
   - wait
   - name: ":docker: Push"
