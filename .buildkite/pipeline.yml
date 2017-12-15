@@ -12,7 +12,7 @@ steps:
           download: "dist/*"
       - docker-compose#v1.7.0:
           build: statusbot
-          image-repository: 032379705303.dkr.ecr.us-east-1.amazonaws.com/statusbot
+          image-repository: 445615400570.dkr.ecr.us-east-1.amazonaws.com/statusbot-ci
 
   - wait
   - name: ":docker: Push"
