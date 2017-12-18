@@ -19,7 +19,7 @@ steps:
     plugins:
       ecr#v1.1.2:
         login: true
-        account-ids: 032379705303
+        account-ids: "032379705303"
       docker-compose#v1.7.0:
         push:
           - statusbot:032379705303.dkr.ecr.us-east-1.amazonaws.com/statusbot:${BUILDKITE_BUILD_NUMBER}
