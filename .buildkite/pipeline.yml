@@ -16,6 +16,8 @@ steps:
 
   - wait
   - name: ":docker: Push"
+    agents:
+      queue: deploy
     plugins:
       ecr#v1.1.2:
         login: true
