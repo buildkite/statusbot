@@ -29,5 +29,8 @@ steps:
           - statusbot:032379705303.dkr.ecr.us-east-1.amazonaws.com/statusbot:${BUILDKITE_BUILD_NUMBER}
 
   - wait
-  - label: ":ecs: Deploy"
+  - name: ":ecs: Deploy"
     command: .buildkite/steps/deploy-ecs.sh
+    agents:
+      queue: deploy
+
