@@ -19,7 +19,7 @@ steps:
     agents:
       queue: deploy
     plugins:
-      ecr#v1.1.2:
+      ecr#b042300:
         login: true
         account-ids: "445615400570"
       docker-compose#v1.7.0:
