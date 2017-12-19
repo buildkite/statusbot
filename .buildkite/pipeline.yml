@@ -27,3 +27,7 @@ steps:
       docker-compose#v1.7.0:
         push:
           - statusbot:032379705303.dkr.ecr.us-east-1.amazonaws.com/statusbot:${BUILDKITE_BUILD_NUMBER}
+
+  - wait
+  - label: ":ecs: Deploy"
+    command: .buildkite/steps/deploy-ecs.sh
