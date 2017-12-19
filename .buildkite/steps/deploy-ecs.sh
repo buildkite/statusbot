@@ -21,7 +21,11 @@ task_definition=$(cat << JSON
       }
   },
   "memoryReservation": 64,
-  "name": "statusbot"
+  "name": "statusbot",
+  "environment" : [
+      { "name" : "SLACK_TOKEN", "value" : "${SLACK_TOKEN?}" },
+      { "name" : "STATUS_PAGE_TOKEN", "value" : "${STATUS_PAGE_TOKEN?}" }
+  ]
 }]
 JSON
 )
