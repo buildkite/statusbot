@@ -28,5 +28,6 @@
 			"revisionTime": "2017-06-11T01:16:46Z"
 		}
 	],
-	"rootPath": "github.com/buildkite/statusbot"
+  "rootPath": "github.com/buildkite/statusbot",
+  "heroku.goVersion": "1.9.3"
 }
