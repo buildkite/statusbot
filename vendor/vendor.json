@@ -9,10 +9,11 @@
 			"revisionTime": "2015-11-05T21:09:06Z"
 		},
 		{
-			"checksumSHA1": "HYgTWn4FgVbvSBYVO4DxUPWfCz0=",
+			"checksumSHA1": "9aJ3Q0PzPOMzlzGjP5tVdRdt30c=",
+			"origin": "github.com/apokalyptik/slack",
 			"path": "github.com/nlopes/slack",
-			"revision": "5cde21b8b96a43fc3435a1f514123d14fd7eabdc",
-			"revisionTime": "2017-07-25T12:17:30Z"
+			"revision": "3a54c600b31b0c688debf4692c24c518476801ef",
+			"revisionTime": "2017-12-01T14:34:08Z"
 		},
 		{
 			"checksumSHA1": "7ZcxTgerdDQ2GttgXEULUdyJCv0=",

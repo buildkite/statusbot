@@ -16,33 +16,44 @@ import (
 )
 
 const (
-	defaultChannel = `G8DKQK0F5`
-	statusPageID   = `ltljpr68dygn`
-	baseURL        = `https://www.buildkitestatus.com`
+	baseURL = `https://buildkitestatus.com`
+	version = "dev"
 )
 
 func main() {
-	updates, err := pollStatusPage(time.Second * 5)
+	log.Printf("Statusbot (%s) starting", version)
+
+	updates, err := pollStatusPage(time.Second*30, time.Now())
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	api := slack.New(os.Getenv(`SLACK_TOKEN`))
+
+	// logger := log.New(os.Stdout, "slack-bot: ", log.Lshortfile|log.LstdFlags)
+	// slack.SetLogger(logger)
+	// api.SetDebug(true)
+
 	rtm := api.NewRTM()
 	go rtm.ManageConnection()
 
-	cutoff := time.Now().AddDate(0, -1, 0)
-
 	go func() {
 		for update := range updates {
-			if update.Timestamp.After(cutoff) {
-				if err := update.PostToSlack(api); err != nil {
-					log.Printf("Error posting to slack: %v", err)
-					time.Sleep(time.Second * 5)
-				}
+			if err := update.PostToAllSlackChannels(api); err != nil {
+				log.Printf("Error posting to slack: %v", err)
+				time.Sleep(time.Second * 5)
 			}
 		}
 	}()
+
+	channels, err := getBotChannels(api)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, channel := range channels {
+		log.Printf("In channel %s (%s)", channel.Name, channel.ID)
+	}
 
 	var botID string
 
@@ -50,31 +61,46 @@ func main() {
 		select {
 		case msg := <-rtm.IncomingEvents:
 			switch ev := msg.Data.(type) {
+
+			case *slack.HelloEvent:
+				// Not sure
 			case *slack.ConnectingEvent:
 				// Attempting connection
 			case *slack.ConnectedEvent:
 				botID = ev.Info.User.ID
 				log.Printf("Connected, bot id = %s", botID)
+
 			case *slack.TeamJoinEvent:
 				// Handle new user to client
 			case *slack.MessageEvent:
 				// Handle new message to channel
-				log.Printf("Message from %s (%s): %s", ev.User, ev.BotID, ev.Msg.Text)
-				spew.Dump(ev)
+				if ev.Username != `Buildkite Status` {
+					spew.Dump(ev)
+				}
+
 			case *slack.ReactionAddedEvent:
 				// Handle reaction added
 			case *slack.ReactionRemovedEvent:
 				// Handle reaction removed
 			case *slack.PresenceChangeEvent:
 				// Handle presence change
+			case *slack.ChannelJoinedEvent:
+				log.Printf("Joined channel: %#v", ev)
+				// Handle channel joined
+			case *slack.ChannelLeftEvent:
+				// Handle channel left
+
 			case *slack.RTMError:
+				log.Printf("Error: %v", ev)
+			case *slack.ConnectionErrorEvent:
 				log.Printf("Error: %s", ev.Error())
-			case *slack.AckErrorEvent:
-				log.Printf("ACK Error: %s", ev)
 			case *slack.InvalidAuthEvent:
 				log.Fatal("Invalid credentials")
-			default:
-				log.Printf("Unknown message type: %T %#v", ev, msg)
+			case *slack.AckErrorEvent:
+				log.Printf("ACK Error")
+
+				// default:
+				// log.Printf("Unknown message type: %T %#v", ev, msg)
 			}
 		}
 	}
@@ -87,63 +113,97 @@ type incidentUpdate struct {
 	IsNew          bool
 }
 
-func (iu incidentUpdate) PostToSlack(api *slack.Client) error {
-	var color string
-	var title string
+func (iu incidentUpdate) PostToAllSlackChannels(api *slack.Client) error {
+	attachment := slack.Attachment{
+		Text:      *iu.IncidentUpdate.Body,
+		TitleLink: fmt.Sprintf(`%s/incidents/%s`, baseURL, *iu.Incident.ID),
+		Footer:    "buildkitestatus.com",
+		Ts:        json.Number(strconv.FormatInt(iu.IncidentUpdate.CreatedAt.Unix(), 10)),
+		Fields: []slack.AttachmentField{
+			{
+				Title: "Status",
+				Value: strings.Title(*iu.IncidentUpdate.Status),
+			},
+		},
+	}
+
 	switch status := *iu.IncidentUpdate.Status; status {
 	// real-time incidents
 	case `identified`:
-		color = "#B03A2E"
-		title = fmt.Sprintf("An incident has been identified: %s 🚨", *iu.Incident.Name)
+		attachment.Color = "#B03A2E"
+		attachment.Title = fmt.Sprintf("An incident has been identified: %s 🚨", *iu.Incident.Name)
 	case `investigating`:
-		title = fmt.Sprintf("We are investigating an incident: %s 🎉", *iu.Incident.Name)
-		color = "#B03A2E"
+		attachment.Title = fmt.Sprintf("We are investigating an incident: %s 🎉", *iu.Incident.Name)
+		attachment.Color = "#B03A2E"
 	case `resolved`:
-		title = fmt.Sprintf("An incident has been resolved: %s 🎉", *iu.Incident.Name)
-		color = "#36a64f"
+		attachment.Title = fmt.Sprintf("An incident has been resolved: %s 🎉", *iu.Incident.Name)
+		attachment.Color = "#36a64f"
 	case `monitoring`:
-		title = fmt.Sprintf("We are monitoring an incident: %s 🎉", *iu.Incident.Name)
-		color = "#36a64f"
+		attachment.Title = fmt.Sprintf("We are monitoring an incident: %s 🕵️‍", *iu.Incident.Name)
+		attachment.Color = "#36a64f"
+	case `postmortem`:
+		attachment.Title = fmt.Sprintf("We've posted a postmortem for an incident: %s 🎉", *iu.Incident.Name)
+		attachment.Text = ""
 
 	// scheduled incidents
 	case `scheduled`:
-		title = fmt.Sprintf("We've scheduled some downtime: %s", *iu.Incident.Name)
+		attachment.Title = fmt.Sprintf("We've scheduled some downtime: %s", *iu.Incident.Name)
 	case `inprogress`:
-		title = fmt.Sprintf("Scheduled downtime is in progress: %s", *iu.Incident.Name)
+		attachment.Title = fmt.Sprintf("Scheduled downtime is in progress: %s", *iu.Incident.Name)
 	case `verifying`:
-		title = fmt.Sprintf("Scheduled downtime is complete and we are monitoring: %s", *iu.Incident.Name)
-	case `complete`:
-		title = fmt.Sprintf("Scheduled downtime is complete: %s", *iu.Incident.Name)
+		attachment.Title = fmt.Sprintf("Scheduled downtime is complete and we are monitoring: %s", *iu.Incident.Name)
+	case `completed`:
+		attachment.Title = fmt.Sprintf("Scheduled downtime is complete: %s", *iu.Incident.Name)
 
 	default:
 		spew.Dump(iu.IncidentUpdate)
 		log.Printf("Unhandled status %q", status)
 		return nil
 	}
-	_, _, err := api.PostMessage(defaultChannel, "", slack.PostMessageParameters{
-		Username: "Buildkite Status",
-		AsUser:   false,
-		IconURL:  "https://pbs.twimg.com/profile_images/543308685846392834/MFz0QmKq_400x400.jpeg",
-		Attachments: []slack.Attachment{{
-			Text:      *iu.IncidentUpdate.Body,
-			Color:     color,
-			Title:     title,
-			TitleLink: fmt.Sprintf(`%s/incidents/%s`, baseURL, *iu.Incident.ID),
-			Footer:    "buildkitestatus.com",
-			Ts:        json.Number(strconv.FormatInt(iu.IncidentUpdate.CreatedAt.Unix(), 10)),
-			Fields: []slack.AttachmentField{
-				{
-					Title: "Status",
-					Value: strings.Title(*iu.IncidentUpdate.Status),
-				},
-			},
-		}},
-	})
-	return err
+
+	channels, err := getBotChannels(api)
+	if err != nil {
+		return err
+	}
+
+	for _, channel := range channels {
+		log.Printf("Posting to %#v", channel)
+		_, _, err := api.PostMessage(channel.ID, "", slack.PostMessageParameters{
+			Username:    "Buildkite Status",
+			AsUser:      false,
+			IconURL:     "https://pbs.twimg.com/profile_images/543308685846392834/MFz0QmKq_400x400.jpeg",
+			Attachments: []slack.Attachment{attachment},
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
-func pollStatusPage(d time.Duration) (chan incidentUpdate, error) {
-	client, err := statuspage.NewClient(os.Getenv(`STATUS_PAGE_TOKEN`), statusPageID)
+func getBotChannels(api *slack.Client) ([]slack.Channel, error) {
+	results := []slack.Channel{}
+
+	channels, err := api.GetChannels(true)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, channel := range channels {
+		if channel.IsMember {
+			results = append(results, channel)
+		}
+	}
+
+	return results, nil
+}
+
+func pollStatusPage(d time.Duration, cutoff time.Time) (chan incidentUpdate, error) {
+	pageID := os.Getenv(`STATUS_PAGE_ID`)
+	log.Printf("Polling statuspage.io (Page %s)", pageID)
+
+	client, err := statuspage.NewClient(os.Getenv(`STATUS_PAGE_TOKEN`), pageID)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +212,7 @@ func pollStatusPage(d time.Duration) (chan incidentUpdate, error) {
 	ticker := time.NewTicker(d)
 
 	var lastUpdated sync.Map
-	var startTime time.Time = time.Now()
+	var startTime time.Time = cutoff
 
 	go func() {
 		for _ = range ticker.C {
@@ -167,29 +227,31 @@ func pollStatusPage(d time.Duration) (chan incidentUpdate, error) {
 				var updates []incidentUpdate
 
 				if result, ok := lastUpdated.Load(*incident.ID); ok {
-					updates = findIncidentUpdates(incident, result.(time.Time))
+					updates = convertToIncidentUpdates(incident, result.(time.Time))
 				} else {
-					updates = findIncidentUpdates(incident, time.Time{})
+					updates = convertToIncidentUpdates(incident, time.Time{})
 				}
 
 				for _, update := range updates {
 					if update.Timestamp.After(startTime) {
+						log.Printf("Found an update")
 						ch <- update
 					}
 				}
 
 				if len(updates) > 0 {
-					log.Printf("Found %d updates for incident `%s`", len(updates), *incident.ID)
 					lastUpdated.Store(*incident.ID, updates[0].Timestamp)
 				}
 			}
+
+			startTime = time.Now()
 		}
 	}()
 
 	return ch, nil
 }
 
-func findIncidentUpdates(incident statuspage.Incident, after time.Time) []incidentUpdate {
+func convertToIncidentUpdates(incident statuspage.Incident, after time.Time) []incidentUpdate {
 	var updates []incidentUpdate
 
 	for idx, update := range incident.IncidentUpdates {
