@@ -6,29 +6,6 @@ steps:
           upload: "dist/*"
 
   - wait
-  - name: ":docker: Build"
-    plugins:
-      - artifacts#5ad26ec:
-          download: "dist/*"
-      - docker-compose#v1.7.0:
-          build: statusbot
-          image-repository: 445615400570.dkr.ecr.us-east-1.amazonaws.com/statusbot-ci
-
-  - wait
-  - name: ":docker: Push"
-    agents:
-      queue: deploy
-    plugins:
-      ecr#b042300:
-        login: true
-        account-ids:
-          - "445615400570"
-          - "032379705303"
-      docker-compose#v1.7.0:
-        push:
-          - statusbot:032379705303.dkr.ecr.us-east-1.amazonaws.com/statusbot:${BUILDKITE_BUILD_NUMBER}
-
-  - wait
   - name: ":ecs: Deploy"
     command: .buildkite/steps/deploy-ecs.sh
     agents:
