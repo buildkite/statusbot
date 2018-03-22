@@ -74,9 +74,9 @@ func main() {
 				// Handle new user to client
 			case *slack.MessageEvent:
 				// Handle new message to channel
-				if ev.Username != `Buildkite Status` {
-					spew.Dump(ev)
-				}
+				// if ev.Username != `Buildkite Status` {
+				// 	spew.Dump(ev)
+				// }
 
 			case *slack.ReactionAddedEvent:
 				// Handle reaction added
@@ -164,6 +164,10 @@ func (iu incidentUpdate) PostToAllSlackChannels(api *slack.Client) error {
 	channels, err := getBotChannels(api)
 	if err != nil {
 		return err
+	}
+
+	if len(channels) == 0 {
+		log.Printf("Not in any channels!")
 	}
 
 	for _, channel := range channels {
