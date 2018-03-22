@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -52,7 +53,7 @@ func main() {
 	}
 
 	for _, channel := range channels {
-		log.Printf("In channel %s (%s)", channel.Name, channel.ID)
+		log.Printf("In channel %s", channel)
 	}
 
 	var botID string
@@ -172,7 +173,7 @@ func (iu incidentUpdate) PostToAllSlackChannels(api *slack.Client) error {
 
 	for _, channel := range channels {
 		log.Printf("Posting to %#v", channel)
-		_, _, err := api.PostMessage(channel.ID, "", slack.PostMessageParameters{
+		_, _, err := api.PostMessage(channel, "", slack.PostMessageParameters{
 			Username:    "Buildkite Status",
 			AsUser:      false,
 			IconURL:     "https://pbs.twimg.com/profile_images/543308685846392834/MFz0QmKq_400x400.jpeg",
@@ -186,8 +187,10 @@ func (iu incidentUpdate) PostToAllSlackChannels(api *slack.Client) error {
 	return nil
 }
 
-func getBotChannels(api *slack.Client) ([]slack.Channel, error) {
-	results := []slack.Channel{}
+// getBotChannels returns the channels and private groups that the bot
+// is a member of
+func getBotChannels(api *slack.Client) ([]string, error) {
+	results := []string{}
 
 	channels, err := api.GetChannels(true)
 	if err != nil {
@@ -196,8 +199,17 @@ func getBotChannels(api *slack.Client) ([]slack.Channel, error) {
 
 	for _, channel := range channels {
 		if channel.IsMember {
-			results = append(results, channel)
+			results = append(results, fmt.Sprintf("#%s", channel.Name))
 		}
+	}
+
+	groups, err := api.GetGroups(true)
+	if err != nil {
+		return nil, nil
+	}
+
+	for _, group := range groups {
+		results = append(results, group.Name)
 	}
 
 	return results, nil
@@ -205,6 +217,10 @@ func getBotChannels(api *slack.Client) ([]slack.Channel, error) {
 
 func pollStatusPage(d time.Duration, cutoff time.Time) (chan incidentUpdate, error) {
 	pageID := os.Getenv(`STATUS_PAGE_ID`)
+	if pageID == "" {
+		return nil, errors.New("No STATUS_PAGE_ID set")
+	}
+
 	log.Printf("Polling statuspage.io (Page %s)", pageID)
 
 	client, err := statuspage.NewClient(os.Getenv(`STATUS_PAGE_TOKEN`), pageID)
@@ -238,7 +254,7 @@ func pollStatusPage(d time.Duration, cutoff time.Time) (chan incidentUpdate, err
 
 				for _, update := range updates {
 					if update.Timestamp.After(startTime) {
-						log.Printf("Found an update")
+						log.Printf("Found an update to incident %q", *update.Incident.Name)
 						ch <- update
 					}
 				}
