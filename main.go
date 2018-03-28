@@ -192,7 +192,9 @@ func (iu incidentUpdate) PostToAllSlackChannels(api *slack.Client) error {
 func getBotChannels(api *slack.Client) ([]string, error) {
 	results := []string{}
 
-	channels, err := api.GetChannels(true)
+	channels, _, err := api.GetConversations(&slack.GetConversationsParameters{
+		ExcludeArchived: "true",
+	})
 	if err != nil {
 		return nil, err
 	}
