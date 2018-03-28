@@ -1,5 +1,6 @@
 {
 	"comment": "",
+	"heroku.goVersion": "1.9.3",
 	"ignore": "test",
 	"package": [
 		{
@@ -9,11 +10,16 @@
 			"revisionTime": "2015-11-05T21:09:06Z"
 		},
 		{
-			"checksumSHA1": "9aJ3Q0PzPOMzlzGjP5tVdRdt30c=",
-			"origin": "github.com/apokalyptik/slack",
+			"checksumSHA1": "+1LsRRZKa06yTFg/Tu5NCsyHxOA=",
+			"path": "github.com/gorilla/websocket",
+			"revision": "eb925808374e5ca90c83401a40d711dc08c0c0f6",
+			"revisionTime": "2018-03-06T18:15:48Z"
+		},
+		{
+			"checksumSHA1": "9AtNctGDC9wDpvRa3c/2KqvTfbE=",
 			"path": "github.com/nlopes/slack",
-			"revision": "3a54c600b31b0c688debf4692c24c518476801ef",
-			"revisionTime": "2017-12-01T14:34:08Z"
+			"revision": "91c91a11ad0b66b7a690029c56c330ca9f18841b",
+			"revisionTime": "2018-03-07T17:34:13Z"
 		},
 		{
 			"checksumSHA1": "7ZcxTgerdDQ2GttgXEULUdyJCv0=",
@@ -28,6 +34,5 @@
 			"revisionTime": "2017-06-11T01:16:46Z"
 		}
 	],
-  "rootPath": "github.com/buildkite/statusbot",
-  "heroku.goVersion": "1.9.3"
+	"rootPath": "github.com/buildkite/statusbot"
 }
