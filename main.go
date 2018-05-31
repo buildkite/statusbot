@@ -132,18 +132,18 @@ func (iu incidentUpdate) PostToAllSlackChannels(api *slack.Client) error {
 	// real-time incidents
 	case `identified`:
 		attachment.Color = "#B03A2E"
-		attachment.Title = fmt.Sprintf("An incident has been identified: %s 🚨", *iu.Incident.Name)
+		attachment.Title = fmt.Sprintf("An incident has been identified: %s 💡", *iu.Incident.Name)
 	case `investigating`:
-		attachment.Title = fmt.Sprintf("We are investigating an incident: %s 🎉", *iu.Incident.Name)
+		attachment.Title = fmt.Sprintf("We are investigating an incident: %s 🚨", *iu.Incident.Name)
 		attachment.Color = "#B03A2E"
 	case `resolved`:
 		attachment.Title = fmt.Sprintf("An incident has been resolved: %s 🎉", *iu.Incident.Name)
 		attachment.Color = "#36a64f"
 	case `monitoring`:
-		attachment.Title = fmt.Sprintf("We are monitoring an incident: %s 🕵️‍", *iu.Incident.Name)
+		attachment.Title = fmt.Sprintf("We are monitoring an incident: %s 👀️‍", *iu.Incident.Name)
 		attachment.Color = "#36a64f"
 	case `postmortem`:
-		attachment.Title = fmt.Sprintf("We've posted a postmortem for an incident: %s 🎉", *iu.Incident.Name)
+		attachment.Title = fmt.Sprintf("We've posted a postmortem for an incident: %s ⚖️", *iu.Incident.Name)
 		attachment.Text = ""
 
 	// scheduled incidents
