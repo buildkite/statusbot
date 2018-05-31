@@ -187,31 +187,24 @@ func (iu incidentUpdate) PostToAllSlackChannels(api *slack.Client) error {
 	return nil
 }
 
-// getBotChannels returns the channels and private groups that the bot
-// is a member of
+// getBotChannels returns the channels that the bot is a member of
 func getBotChannels(api *slack.Client) ([]string, error) {
 	results := []string{}
 
-	channels, _, err := api.GetConversations(&slack.GetConversationsParameters{
+	// Conversations cover channels and shared channels
+	conversation, _, err := api.GetConversations(&slack.GetConversationsParameters{
 		ExcludeArchived: "true",
+		Types:           []string{"public_channel", "private_channel"},
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	for _, channel := range channels {
-		if channel.IsMember {
-			results = append(results, fmt.Sprintf("#%s", channel.Name))
+	// Check if we are a member of the conversations
+	for _, conversation := range conversation {
+		if conversation.IsMember {
+			results = append(results, fmt.Sprintf("#%s", conversation.NameNormalized))
 		}
-	}
-
-	groups, err := api.GetGroups(true)
-	if err != nil {
-		return nil, nil
-	}
-
-	for _, group := range groups {
-		results = append(results, group.Name)
 	}
 
 	return results, nil
