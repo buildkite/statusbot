@@ -4,5 +4,3 @@ services:
     build: .
     environment:
       - SLACK_TOKEN
-      - STATUS_PAGE_TOKEN
-      - STATUS_PAGE_ID
