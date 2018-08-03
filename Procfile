@@ -1,1 +1,1 @@
-worker: statusbot
+web: statusbot

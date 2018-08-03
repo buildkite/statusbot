@@ -41,10 +41,15 @@ func main() {
 		},
 	}
 
-	log.Printf("Webhook server started, listening on :8080")
+	listen := ":8080"
+	if port := os.Getenv("PORT"); port != "" {
+		listen = ":" + port
+	}
+
+	log.Printf("Webhook server started, listening on %s", listen)
 	go func() {
 		http.Handle("/", server)
-		log.Fatal(http.ListenAndServe(":8080", nil))
+		log.Fatal(http.ListenAndServe(listen, nil))
 	}()
 
 	channels, err := getBotChannels(api)

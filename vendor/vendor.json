@@ -2,5 +2,9 @@
 	"comment": "",
 	"ignore": "test",
 	"package": [],
-	"rootPath": "github.com/buildkite/statusbot"
+  "rootPath": "github.com/buildkite/statusbot",
+  "heroku": {
+    "install" : [ "." ],
+    "goVersion": "go1.10.3"
+  }
 }

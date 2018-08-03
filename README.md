@@ -16,9 +16,19 @@ Statusbot can be hosted on Heroku (for your own Slack's):
 heroku create
 heroku config:set SLACK_TOKEN=${SLACK_TOKEN}
 git push heroku master
-heroku ps:scale worker=1
-heroku logs -d worker --tail
+heroku ps:scale web=1
+heroku logs -d web --tail
 ```
+
+Get the url from the Heroku and add it as a notification to our Status Page at https://buildkitestatus.com:
+
+* Select "Subscribe to Updates"
+* Select the webhook tab
+* Enter https://<your-app-name>.herokuapp.com/ as the URL to send webhooks to
+* Enter an email for backup
+* Press subscribe!
+
+
 
 ## Development
 
