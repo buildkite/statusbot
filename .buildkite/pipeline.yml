@@ -1,7 +1,7 @@
 steps:
   - label: ":golang:"
     plugins:
-      golang-cross-compile#v1.0.0:
+      golang-cross-compile#v1.1.0:
         build: .
         import: github.com/buildkite/statusbot
         targets:
