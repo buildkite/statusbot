@@ -1,13 +1,20 @@
 steps:
-  - name: ":linux: amd64"
-    command: .buildkite/steps/build-binary.sh linux amd64
+  - label: ":golang:"
     plugins:
-      - artifacts#5ad26ec:
-          upload: "dist/*"
-
-  - wait
-  - name: ":ecs: Deploy"
-    command: .buildkite/steps/deploy-ecs.sh
-    agents:
-      queue: deploy
+      golang-cross-compile#v1.0.0:
+        build: .
+        import: github.com/buildkite/statusbot
+        targets:
+          - version: 1.10.3
+            os: linux
+            arch: amd64
+          - version: 1.10.3
+            os: windows
+            arch: amd64
+          - version: 1.10.3
+            os: darwin
+            arch: amd64
+          - version: 1.10.3
+            os: freebsd
+            arch: amd64
 
