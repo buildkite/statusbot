@@ -316,7 +316,7 @@ type StatusPageIncidentUpdate struct {
 	} `json:"affected_components"`
 	CustomTweet          string `json:"custom_tweet"`
 	DeliverNotifications bool   `json:"deliver_notifications"`
-	TweetID              string `json:"tweet_id"`
+	TweetID              int64  `json:"tweet_id"`
 	ID                   string `json:"id"`
 	IncidentID           string `json:"incident_id"`
 }
