@@ -1,6 +1,6 @@
 module github.com/buildkite/statusbot
 
-// +heroku goVersion 1.11
+// +heroku goVersion go1.11
 
 require (
 	github.com/davecgh/go-spew v1.1.1
