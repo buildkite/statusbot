@@ -30,9 +30,13 @@ Get the url from the Heroku and add it as a notification to our Status Page at h
 
 ## Help! We missed a webhook!
 
-Sometimes StatusPage.io disables webhooks on Heroku when they don't respond quickly enough. For cases like this, you can run statusbot against the Atom feed:
+Sometimes StatusPage.io disables webhooks on Heroku when they don't respond quickly enough. For cases like this, you can run statusbot against the Atom feed as well:
 
-https://www.buildkitestatus.com/history.atom
+```
+go run *.go --atom-feed https://www.buildkitestatus.com/history.atom --after "2019-04-01"
+```
+
+This will run a once-off update, skipping any already posted updates.
 
 ## Development
 
