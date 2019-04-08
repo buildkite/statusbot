@@ -27,7 +27,7 @@ const (
 func main() {
 	fetchFeedURL := flag.String("atom-feed", "", "An atom feed to parse instead of webhooks")
 	pollFeedURL := flag.String("poll-atom-feed", "", "An atom feed to poll alongside webhooks")
-	pollFrequency := flag.Duration("poll-frequency", time.Minute, "How often to poll the atom feed")
+	pollFrequency := flag.Duration("poll-frequency", 5*time.Minute, "How often to poll the atom feed")
 	afterString := flag.String("after", "", "Only post updates after this date (YYYY-MM-DD)")
 	flag.Parse()
 
