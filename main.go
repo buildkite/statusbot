@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"encoding/xml"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -17,40 +19,47 @@ import (
 )
 
 const (
-	baseURL = `https://buildkitestatus.com`
-	version = "dev"
+	baseURL    = `https://buildkitestatus.com`
+	version    = "dev"
+	dateFormat = `2006-01-02`
 )
 
 func main() {
+	fetchFeedURL := flag.String("atom-feed", "", "An atom feed to parse instead of webhooks")
+	pollFeedURL := flag.String("poll-atom-feed", "", "An atom feed to poll alongside webhooks")
+	pollFrequency := flag.Duration("poll-frequency", 5*time.Minute, "How often to poll the atom feed")
+	afterString := flag.String("after", "", "Only post updates after this date (YYYY-MM-DD)")
+	flag.Parse()
+
+	var after time.Time
+	if *afterString != "" {
+		var err error
+		after, err = time.Parse(dateFormat, *afterString)
+		if err != nil {
+			log.Fatalf("Failed to parse --after (needs YYYY-MM-DD): %v", err)
+		}
+	}
+
 	log.Printf("Statusbot (%s) starting", version)
 
 	api := slack.New(os.Getenv(`SLACK_TOKEN`))
 	rtm := api.NewRTM()
 	go rtm.ManageConnection()
 
-	// The webhook server receives webhooks from statuspage.io
-	// and sends them on to slack
-	server := &StatusPageWebhookServer{
-		Handler: func(w StatusPageWebhookNotification) error {
-			for _, update := range w.Incident.IncidentUpdates {
-				if err := postIncidentUpdateToAllSlackChannels(w.Incident.Name, update, api); err != nil {
-					return err
-				}
-			}
-			return nil
-		},
-	}
+	// Run in either atom feed mode or webhook server mode
+	if *fetchFeedURL != "" {
+		if err := processAtomFeed(*fetchFeedURL, api, after); err != nil {
+			log.Fatal(err)
+		}
+		os.Exit(0)
+	} else {
+		if *pollFeedURL != "" {
+			log.Printf("Polling atom feed every %v", *pollFrequency)
+			pollAtomFeed(*pollFrequency, *pollFeedURL, api, after)
+		}
 
-	listen := ":8080"
-	if port := os.Getenv("PORT"); port != "" {
-		listen = ":" + port
+		startWebhookServer(api)
 	}
-
-	log.Printf("Webhook server started, listening on %s", listen)
-	go func() {
-		http.Handle("/", server)
-		log.Fatal(http.ListenAndServe(listen, nil))
-	}()
 
 	channels, err := getBotChannels(api)
 	if err != nil {
@@ -112,6 +121,32 @@ func main() {
 			}
 		}
 	}
+}
+
+func startWebhookServer(api *slack.Client) {
+	// The webhook server receives webhooks from statuspage.io
+	// and sends them on to slack
+	server := &StatusPageWebhookServer{
+		Handler: func(w StatusPageWebhookNotification) error {
+			for _, update := range w.Incident.IncidentUpdates {
+				if err := postIncidentUpdateToAllSlackChannels(w.Incident.Name, update, api); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+	}
+
+	listen := ":8080"
+	if port := os.Getenv("PORT"); port != "" {
+		listen = ":" + port
+	}
+
+	log.Printf("Webhook server started, listening on %s", listen)
+	go func() {
+		http.Handle("/", server)
+		log.Fatal(http.ListenAndServe(listen, nil))
+	}()
 }
 
 func incidentURL(update StatusPageIncidentUpdate) string {
@@ -372,4 +407,99 @@ func (s *StatusPageWebhookServer) ServeHTTP(w http.ResponseWriter, r *http.Reque
 		log.Printf("Handler failed: %v", err)
 		return
 	}
+}
+
+func pollAtomFeed(d time.Duration, feedURL string, api *slack.Client, after time.Time) {
+	process := func() {
+		if err := processAtomFeed(feedURL, api, after); err != nil {
+			log.Printf("Error processing feed: %v", err)
+		}
+	}
+
+	process()
+
+	ticker := time.NewTicker(d)
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				process()
+			}
+		}
+	}()
+}
+
+func processAtomFeed(feedURL string, api *slack.Client, after time.Time) error {
+	xmlContent, err := fetchURL(feedURL)
+	if err != nil {
+		return nil
+	}
+
+	// if we get no content, nothing has changed
+	if xmlContent == nil {
+		return nil
+	}
+
+	var atomFeed struct {
+		Entries []struct {
+			Published string `xml:"published"`
+			Link      struct {
+				Href string `xml:"href,attr"`
+			} `xml:"link"`
+		} `xml:"entry"`
+	}
+
+	if err = xml.Unmarshal(xmlContent, &atomFeed); err != nil {
+		return err
+	}
+
+	for _, entry := range atomFeed.Entries {
+		published, err := time.Parse(`2006-01-02T15:04:05-07:00`, entry.Published)
+		if err != nil {
+			return fmt.Errorf("Error parsing published date: %v", err)
+		}
+
+		if published.Before(after) {
+			log.Printf("Finishing processing feed, %s is before cutoff %s",
+				published.Format(dateFormat), after.Format(dateFormat))
+			return nil
+		}
+
+		payload, err := fetchURL(entry.Link.Href + ".json")
+		if err != nil {
+			return err
+		}
+
+		// var formatted bytes.Buffer
+		// _ = json.Indent(&formatted, payload, "", " ")
+		// log.Printf("Raw: %s", formatted.String())
+
+		var incident StatusPageIncident
+
+		if err := json.Unmarshal(payload, &incident); err != nil {
+			return err
+		}
+
+		log.Printf("Processing incident %s", incident.ID)
+
+		for _, update := range incident.IncidentUpdates {
+			if err := postIncidentUpdateToAllSlackChannels(incident.Name, update, api); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func fetchURL(u string) ([]byte, error) {
+	log.Printf("Fetching %s", u)
+
+	resp, err := http.Get(u)
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+	return ioutil.ReadAll(resp.Body)
 }
