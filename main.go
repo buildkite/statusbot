@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"encoding/xml"
 	"flag"
@@ -12,6 +11,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/nlopes/slack"
@@ -117,16 +117,22 @@ func main() {
 }
 
 func startWebhookServer(api *slack.Client, dryRun bool) {
+	var mu sync.Mutex
+
 	// The webhook server receives webhooks from statuspage.io
 	// and sends them on to slack
 	server := &StatusPageWebhookServer{
-		Handler: func(w StatusPageWebhookNotification) error {
+		Handler: func(w StatusPageWebhookNotification) {
+			mu.Lock()
+			defer mu.Unlock()
+			log.Printf("Handling webhook notification")
+
 			for _, update := range w.Incident.IncidentUpdates {
 				if err := postIncidentUpdateToAllSlackChannels(w.Incident.Name, update, api, dryRun); err != nil {
-					return err
+					log.Printf("Error posting updates: %v", err)
+					return
 				}
 			}
-			return nil
 		},
 	}
 
@@ -355,7 +361,7 @@ type StatusPageIncidentUpdate struct {
 }
 
 type StatusPageWebhookServer struct {
-	Handler func(w StatusPageWebhookNotification) error
+	Handler func(w StatusPageWebhookNotification)
 }
 
 func (s *StatusPageWebhookServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -381,9 +387,9 @@ func (s *StatusPageWebhookServer) ServeHTTP(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	var formatted bytes.Buffer
-	_ = json.Indent(&formatted, payload, "", " ")
-	log.Printf("Raw: %s", formatted.String())
+	// var formatted bytes.Buffer
+	// _ = json.Indent(&formatted, payload, "", " ")
+	// log.Printf("Raw: %s", formatted.String())
 
 	var webhook StatusPageWebhookNotification
 
@@ -400,11 +406,8 @@ func (s *StatusPageWebhookServer) ServeHTTP(w http.ResponseWriter, r *http.Reque
 	}
 	webhook.Incident.IncidentUpdates = updates
 
-	// handle the webhook
-	if err := s.Handler(webhook); err != nil {
-		log.Printf("Handler failed: %v", err)
-		return
-	}
+	// handle the webhook asynchronously so we get a reply back quick
+	go s.Handler(webhook)
 }
 
 func processAtomFeed(feedURL string, api *slack.Client, after time.Time, dryRun bool) error {
