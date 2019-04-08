@@ -14,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/nlopes/slack"
 )
 
@@ -27,6 +26,7 @@ const (
 func main() {
 	fetchFeedURL := flag.String("atom-feed", "", "An atom feed to parse instead of webhooks")
 	afterString := flag.String("after", "", "Only post updates after this date (YYYY-MM-DD)")
+	dryRun := flag.Bool("dry-run", false, "If true, don't actually post slack messages")
 	flag.Parse()
 
 	var after time.Time
@@ -46,12 +46,12 @@ func main() {
 
 	// Run in either atom feed mode or webhook server mode
 	if *fetchFeedURL != "" {
-		if err := processAtomFeed(*fetchFeedURL, api, after); err != nil {
+		if err := processAtomFeed(*fetchFeedURL, api, after, *dryRun); err != nil {
 			log.Fatal(err)
 		}
 		os.Exit(0)
 	} else {
-		startWebhookServer(api)
+		startWebhookServer(api, *dryRun)
 	}
 
 	channels, err := getBotChannels(api)
@@ -116,13 +116,13 @@ func main() {
 	}
 }
 
-func startWebhookServer(api *slack.Client) {
+func startWebhookServer(api *slack.Client, dryRun bool) {
 	// The webhook server receives webhooks from statuspage.io
 	// and sends them on to slack
 	server := &StatusPageWebhookServer{
 		Handler: func(w StatusPageWebhookNotification) error {
 			for _, update := range w.Incident.IncidentUpdates {
-				if err := postIncidentUpdateToAllSlackChannels(w.Incident.Name, update, api); err != nil {
+				if err := postIncidentUpdateToAllSlackChannels(w.Incident.Name, update, api, dryRun); err != nil {
 					return err
 				}
 			}
@@ -146,7 +146,7 @@ func incidentURL(update StatusPageIncidentUpdate) string {
 	return fmt.Sprintf(`%s/incidents/%s`, baseURL, update.IncidentID)
 }
 
-func postIncidentUpdateToAllSlackChannels(name string, update StatusPageIncidentUpdate, api *slack.Client) error {
+func postIncidentUpdateToAllSlackChannels(name string, update StatusPageIncidentUpdate, api *slack.Client, dryRun bool) error {
 	attachment := slack.Attachment{
 		Text:       update.Body,
 		TitleLink:  incidentURL(update),
@@ -182,7 +182,7 @@ func postIncidentUpdateToAllSlackChannels(name string, update StatusPageIncident
 	// scheduled incidents
 	case `scheduled`:
 		attachment.Title = fmt.Sprintf("We've scheduled some downtime: %s", name)
-	case `inprogress`:
+	case `inprogress`, `in_progress`:
 		attachment.Title = fmt.Sprintf("Scheduled downtime is in progress: %s", name)
 	case `verifying`:
 		attachment.Title = fmt.Sprintf("Scheduled downtime is complete and we are monitoring: %s", name)
@@ -190,7 +190,6 @@ func postIncidentUpdateToAllSlackChannels(name string, update StatusPageIncident
 		attachment.Title = fmt.Sprintf("Scheduled downtime is complete: %s", name)
 
 	default:
-		spew.Dump(update)
 		log.Printf("Unhandled status %q", status)
 		return nil
 	}
@@ -210,14 +209,16 @@ func postIncidentUpdateToAllSlackChannels(name string, update StatusPageIncident
 			continue
 		}
 		log.Printf("Posting update %s to %#v", update.ID, channel.Name)
-		_, _, err := api.PostMessage(channel.Name, "", slack.PostMessageParameters{
-			Username:    "Buildkite Status",
-			AsUser:      false,
-			IconURL:     "https://pbs.twimg.com/profile_images/543308685846392834/MFz0QmKq_400x400.jpeg",
-			Attachments: []slack.Attachment{attachment},
-		})
-		if err != nil {
-			return err
+		if !dryRun {
+			_, _, err := api.PostMessage(channel.Name, "", slack.PostMessageParameters{
+				Username:    "Buildkite Status",
+				AsUser:      false,
+				IconURL:     "https://pbs.twimg.com/profile_images/543308685846392834/MFz0QmKq_400x400.jpeg",
+				Attachments: []slack.Attachment{attachment},
+			})
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -402,7 +403,7 @@ func (s *StatusPageWebhookServer) ServeHTTP(w http.ResponseWriter, r *http.Reque
 	}
 }
 
-func processAtomFeed(feedURL string, api *slack.Client, after time.Time) error {
+func processAtomFeed(feedURL string, api *slack.Client, after time.Time, dryRun bool) error {
 	xmlContent, err := fetchURL(feedURL)
 	if err != nil {
 		return nil
@@ -453,10 +454,14 @@ func processAtomFeed(feedURL string, api *slack.Client, after time.Time) error {
 			return err
 		}
 
-		log.Printf("Processing incident %s", incident.ID)
+		if dryRun {
+			log.Printf("Processing incident %s (dry-run)", incident.ID)
+		} else {
+			log.Printf("Processing incident %s", incident.ID)
+		}
 
 		for _, update := range incident.IncidentUpdates {
-			if err := postIncidentUpdateToAllSlackChannels(incident.Name, update, api); err != nil {
+			if err := postIncidentUpdateToAllSlackChannels(incident.Name, update, api, dryRun); err != nil {
 				return err
 			}
 		}
