@@ -25,7 +25,9 @@ const (
 )
 
 func main() {
-	atomFeed := flag.String("atom-feed", "", "An atom feed to parse instead of webhooks")
+	fetchFeedURL := flag.String("atom-feed", "", "An atom feed to parse instead of webhooks")
+	pollFeedURL := flag.String("poll-atom-feed", "", "An atom feed to poll alongside webhooks")
+	pollFrequency := flag.Duration("poll-frequency", time.Minute, "How often to poll the atom feed")
 	afterString := flag.String("after", "", "Only post updates after this date (YYYY-MM-DD)")
 	flag.Parse()
 
@@ -45,12 +47,17 @@ func main() {
 	go rtm.ManageConnection()
 
 	// Run in either atom feed mode or webhook server mode
-	if *atomFeed != "" {
-		if err := processAtomFeed(*atomFeed, api, after); err != nil {
+	if *fetchFeedURL != "" {
+		if err := processAtomFeed(*fetchFeedURL, api, after); err != nil {
 			log.Fatal(err)
 		}
 		os.Exit(0)
 	} else {
+		if *pollFeedURL != "" {
+			log.Printf("Polling atom feed every %v", *pollFrequency)
+			pollAtomFeed(*pollFrequency, *pollFeedURL, api, after)
+		}
+
 		startWebhookServer(api)
 	}
 
@@ -402,13 +409,36 @@ func (s *StatusPageWebhookServer) ServeHTTP(w http.ResponseWriter, r *http.Reque
 	}
 }
 
+func pollAtomFeed(d time.Duration, feedURL string, api *slack.Client, after time.Time) {
+	process := func() {
+		if err := processAtomFeed(feedURL, api, after); err != nil {
+			log.Printf("Error processing feed: %v", err)
+		}
+	}
+
+	process()
+
+	ticker := time.NewTicker(d)
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				process()
+			}
+		}
+	}()
+}
+
 func processAtomFeed(feedURL string, api *slack.Client, after time.Time) error {
 	xmlContent, err := fetchURL(feedURL)
 	if err != nil {
 		return nil
 	}
 
-	log.Printf("Parsing %d bytes of feed", len(xmlContent))
+	// if we get no content, nothing has changed
+	if xmlContent == nil {
+		return nil
+	}
 
 	var atomFeed struct {
 		Entries []struct {
@@ -430,9 +460,9 @@ func processAtomFeed(feedURL string, api *slack.Client, after time.Time) error {
 		}
 
 		if published.Before(after) {
-			log.Printf("Skipping incident, %s is before %s",
+			log.Printf("Finishing processing feed, %s is before cutoff %s",
 				published.Format(dateFormat), after.Format(dateFormat))
-			continue
+			return nil
 		}
 
 		payload, err := fetchURL(entry.Link.Href + ".json")
