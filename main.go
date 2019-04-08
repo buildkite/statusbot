@@ -123,6 +123,8 @@ func startWebhookServer(api *slack.Client, dryRun bool) {
 	// and sends them on to slack
 	server := &StatusPageWebhookServer{
 		Handler: func(w StatusPageWebhookNotification) {
+			// Lock this to prevent concurrent notification runs as
+			// these are now asynchronously dispatched
 			mu.Lock()
 			defer mu.Unlock()
 			log.Printf("Handling webhook notification")
