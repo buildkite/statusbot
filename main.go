@@ -44,16 +44,6 @@ func main() {
 	rtm := api.NewRTM()
 	go rtm.ManageConnection()
 
-	// Run in either atom feed mode or webhook server mode
-	if *fetchFeedURL != "" {
-		if err := processAtomFeed(*fetchFeedURL, api, after, *dryRun); err != nil {
-			log.Fatal(err)
-		}
-		os.Exit(0)
-	} else {
-		startWebhookServer(api, *dryRun)
-	}
-
 	channels, err := getBotChannels(api)
 	if err != nil {
 		log.Fatal(err)
@@ -62,6 +52,16 @@ func main() {
 	// For debugging, lets show what channels we are in
 	for _, channel := range channels {
 		log.Printf("In channel %s", channel.Name)
+	}
+
+	// Run in either atom feed mode or webhook server mode
+	if *fetchFeedURL != "" {
+		if err := processAtomFeed(*fetchFeedURL, api, after, *dryRun); err != nil {
+			log.Fatal(err)
+		}
+		os.Exit(0)
+	} else {
+		startWebhookServer(api, *dryRun)
 	}
 
 	var botID string
@@ -208,7 +208,11 @@ func postIncidentUpdateToAllSlackChannels(name string, update StatusPageIncident
 			log.Printf("Skipping already posted update %s to %s", update.ID, channel.Name)
 			continue
 		}
-		log.Printf("Posting update %s to %#v", update.ID, channel.Name)
+		if dryRun {
+			log.Printf("Posting update %s to %#v (DRY RUN)", update.ID, channel.Name)
+		} else {
+			log.Printf("Posting update %s to %#v", update.ID, channel.Name)
+		}
 		if !dryRun {
 			_, _, err := api.PostMessage(channel.Name, "", slack.PostMessageParameters{
 				Username:    "Buildkite Status",
@@ -454,11 +458,7 @@ func processAtomFeed(feedURL string, api *slack.Client, after time.Time, dryRun 
 			return err
 		}
 
-		if dryRun {
-			log.Printf("Processing incident %s (dry-run)", incident.ID)
-		} else {
-			log.Printf("Processing incident %s", incident.ID)
-		}
+		log.Printf("Processing incident %s", incident.ID)
 
 		for _, update := range incident.IncidentUpdates {
 			if err := postIncidentUpdateToAllSlackChannels(incident.Name, update, api, dryRun); err != nil {
