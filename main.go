@@ -26,8 +26,6 @@ const (
 
 func main() {
 	fetchFeedURL := flag.String("atom-feed", "", "An atom feed to parse instead of webhooks")
-	pollFeedURL := flag.String("poll-atom-feed", "", "An atom feed to poll alongside webhooks")
-	pollFrequency := flag.Duration("poll-frequency", 5*time.Minute, "How often to poll the atom feed")
 	afterString := flag.String("after", "", "Only post updates after this date (YYYY-MM-DD)")
 	flag.Parse()
 
@@ -53,11 +51,6 @@ func main() {
 		}
 		os.Exit(0)
 	} else {
-		if *pollFeedURL != "" {
-			log.Printf("Polling atom feed every %v", *pollFrequency)
-			pollAtomFeed(*pollFrequency, *pollFeedURL, api, after)
-		}
-
 		startWebhookServer(api)
 	}
 
@@ -407,26 +400,6 @@ func (s *StatusPageWebhookServer) ServeHTTP(w http.ResponseWriter, r *http.Reque
 		log.Printf("Handler failed: %v", err)
 		return
 	}
-}
-
-func pollAtomFeed(d time.Duration, feedURL string, api *slack.Client, after time.Time) {
-	process := func() {
-		if err := processAtomFeed(feedURL, api, after); err != nil {
-			log.Printf("Error processing feed: %v", err)
-		}
-	}
-
-	process()
-
-	ticker := time.NewTicker(d)
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				process()
-			}
-		}
-	}()
 }
 
 func processAtomFeed(feedURL string, api *slack.Client, after time.Time) error {
