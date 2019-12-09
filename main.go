@@ -222,12 +222,12 @@ func postIncidentUpdateToAllSlackChannels(name string, update StatusPageIncident
 			log.Printf("Posting update %s to %#v", update.ID, channel.Name)
 		}
 		if !dryRun {
-			_, _, err := api.PostMessage(channel.Name, "", slack.PostMessageParameters{
-				Username:    "Buildkite Status",
-				AsUser:      false,
-				IconURL:     "https://pbs.twimg.com/profile_images/543308685846392834/MFz0QmKq_400x400.jpeg",
-				Attachments: []slack.Attachment{attachment},
-			})
+			_, _, err := api.PostMessage(channel.Name,
+				slack.MsgOptionUsername("Buildkite Status"),
+				slack.MsgOptionAsUser(false),
+				slack.MsgOptionIconURL("https://pbs.twimg.com/profile_images/543308685846392834/MFz0QmKq_400x400.jpeg"),
+				slack.MsgOptionAttachments(attachment),
+			)
 			if err != nil {
 				return err
 			}
