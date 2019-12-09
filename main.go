@@ -247,12 +247,18 @@ func getBotChannels(api *slack.Client) ([]Channel, error) {
 	results := []Channel{}
 
 	// Conversations cover channels and shared channels
-	conversation, _, err := api.GetConversations(&slack.GetConversationsParameters{
+	conversation, nextCursor, err := api.GetConversations(&slack.GetConversationsParameters{
 		ExcludeArchived: "true",
 		Types:           []string{"public_channel", "private_channel"},
+		Limit:           1000,
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	// TODO: add looping when we get to >1000 channels
+	if nextCursor != "" {
+		log.Printf("⚠️ conversation.list returned a next cursor token, there may be more channels!")
 	}
 
 	// Check if we are a member of the conversations
