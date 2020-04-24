@@ -1,8 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
-	"encoding/xml"
+	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -14,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mmcdole/gofeed/atom"
 	"github.com/slack-go/slack"
 )
 
@@ -423,42 +425,29 @@ func (s *StatusPageWebhookServer) ServeHTTP(w http.ResponseWriter, r *http.Reque
 }
 
 func processAtomFeed(feedURL string, api *slack.Client, after time.Time, dryRun bool) error {
-	xmlContent, err := fetchURL(feedURL)
+	feedContent, err := fetchURL(feedURL)
 	if err != nil {
-		return nil
+		return err
 	}
 
-	// if we get no content, nothing has changed
-	if xmlContent == nil {
-		return nil
-	}
-
-	var atomFeed struct {
-		Entries []struct {
-			Published string `xml:"published"`
-			Link      struct {
-				Href string `xml:"href,attr"`
-			} `xml:"link"`
-		} `xml:"entry"`
-	}
-
-	if err = xml.Unmarshal(xmlContent, &atomFeed); err != nil {
+	fp := atom.Parser{}
+	atomFeed, err := fp.Parse(bytes.NewReader(feedContent))
+	if err != nil {
 		return err
 	}
 
 	for _, entry := range atomFeed.Entries {
-		published, err := time.Parse(`2006-01-02T15:04:05-07:00`, entry.Published)
-		if err != nil {
-			return fmt.Errorf("Error parsing published date: %v", err)
-		}
-
-		if published.Before(after) {
+		if entry.PublishedParsed.Before(after) {
 			log.Printf("Finishing processing feed, %s is before cutoff %s",
-				published.Format(dateFormat), after.Format(dateFormat))
+				entry.PublishedParsed.Format(dateFormat), after.Format(dateFormat))
 			return nil
 		}
 
-		payload, err := fetchURL(entry.Link.Href + ".json")
+		if len(entry.Links) == 0 {
+			return errors.New("No links found in entry")
+		}
+
+		payload, err := fetchURL(entry.Links[0].Href + ".json")
 		if err != nil {
 			return err
 		}
