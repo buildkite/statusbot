@@ -212,8 +212,12 @@ func postIncidentUpdateToAllSlackChannels(name string, update StatusPageIncident
 	}
 
 	for _, channel := range channels {
-		if isUpdateInChannelHistory(update, api, channel) {
+		inHistory, err := isUpdateInChannelHistory(update, api, channel)
+		if inHistory && err == nil {
 			log.Printf("Skipping already posted update %s to %s", update.ID, channel.Name)
+			continue
+		} else if err != nil {
+			log.Printf("Failed to fetch history, skipping posting update")
 			continue
 		}
 		if dryRun {
@@ -274,13 +278,13 @@ func getBotChannels(api *slack.Client) ([]Channel, error) {
 	return results, nil
 }
 
-func isUpdateInChannelHistory(update StatusPageIncidentUpdate, api *slack.Client, channel Channel) bool {
+func isUpdateInChannelHistory(update StatusPageIncidentUpdate, api *slack.Client, channel Channel) (bool, error) {
 	historyResp, err := api.GetConversationHistory(&slack.GetConversationHistoryParameters{
 		ChannelID: channel.ID,
 	})
 	if err != nil {
 		log.Printf("Error getting conversation history: %v", err)
-		return false
+		return false, err
 	}
 
 	// Get all the channel hisitory
@@ -292,18 +296,18 @@ func isUpdateInChannelHistory(update StatusPageIncidentUpdate, api *slack.Client
 			for _, attachment := range message.Attachments {
 				// For modern attachments, we can use the update ID in the CallbackID
 				if attachment.CallbackID == update.ID {
-					return true
+					return true, nil
 				}
 				// For older attachments, we use the title link and timestamp
 				if attachment.TitleLink == incidentURL(update) &&
 					attachment.Ts == json.Number(strconv.FormatInt(update.CreatedAt.Unix(), 10)) {
-					return true
+					return true, nil
 				}
 			}
 		}
 	}
 
-	return false
+	return false, nil
 }
 
 type StatusPageWebhookNotification struct {
