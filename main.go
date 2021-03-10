@@ -231,7 +231,7 @@ func postIncidentUpdateToAllSlackChannels(name string, update StatusPageIncident
 			_, _, err := api.PostMessage(channel.Name,
 				slack.MsgOptionUsername("Buildkite Status"),
 				slack.MsgOptionAsUser(false),
-				slack.MsgOptionIconURL("https://pbs.twimg.com/profile_images/543308685846392834/MFz0QmKq_400x400.jpeg"),
+				slack.MsgOptionIconURL("https://pbs.twimg.com/profile_images/1369486925246042114/9qPtGpgS_400x400.jpg"),
 				slack.MsgOptionAttachments(attachment),
 			)
 			if err != nil {
