@@ -23,6 +23,7 @@ const (
 	baseURL    = `https://buildkitestatus.com`
 	version    = "dev"
 	dateFormat = `2006-01-02`
+	retryMax   = 5
 )
 
 func main() {
@@ -214,7 +215,7 @@ func postIncidentUpdateToAllSlackChannels(name string, update StatusPageIncident
 	}
 
 	for _, channel := range channels {
-		inHistory, err := isUpdateInChannelHistory(update, api, channel)
+		inHistory, err := isUpdateInChannelHistory(update, api, channel, 0)
 		if inHistory && err == nil {
 			log.Printf("Skipping already posted update %s to %s", update.ID, channel.Name)
 			continue
@@ -280,12 +281,21 @@ func getBotChannels(api *slack.Client) ([]Channel, error) {
 	return results, nil
 }
 
-func isUpdateInChannelHistory(update StatusPageIncidentUpdate, api *slack.Client, channel Channel) (bool, error) {
+func isUpdateInChannelHistory(update StatusPageIncidentUpdate, api *slack.Client, channel Channel, retry int) (bool, error) {
 	historyResp, err := api.GetConversationHistory(&slack.GetConversationHistoryParameters{
 		ChannelID: channel.ID,
 	})
 	if err != nil {
 		log.Printf("Error getting conversation history: %v", err)
+		// If the error is because we hit a rate limit, sleep for the given time and try again
+		switch err.(type) {
+		case *slack.RateLimitedError:
+			if retry < retryMax {
+				time.Sleep(err.(*slack.RateLimitedError).RetryAfter)
+				return isUpdateInChannelHistory(update, api, channel, retry+1)
+			}
+		}
+
 		return false, err
 	}
 
