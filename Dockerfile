@@ -2,6 +2,7 @@
 FROM golang:alpine AS build-env
 WORKDIR  /go/src/github.com/buildkite/statusbot
 ADD . .
+RUN apk add --update --no-cache git
 RUN go build -o statusbot
 
 # final stage
