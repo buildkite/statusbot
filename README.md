@@ -1,5 +1,7 @@
 # Statusbot
 
+**⚠️ This repo is __archived__. We recommend instead using the [first-party slack integration](https://support.atlassian.com/statuspage/docs/enable-slack-subscriptions/) instead ⚠️**
+
 Statusbot is a Slackbot for Buildkite's Private and Public slack that helps interface customers with our monitoring services and site status information.
 
 ## Incident Updates
